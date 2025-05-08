@@ -1,0 +1,159 @@
+#include <GL/glut.h>
+#include <vector>
+#include <cmath>
+#include <iostream>
+
+const int WIDTH = 800, HEIGHT = 800;
+std::vector<std::pair<float, float>> polygon, window;
+bool defining_window = false;
+
+void setupViewport() {
+    glViewport(0, 0, WIDTH, HEIGHT);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(-WIDTH/2, WIDTH/2, -HEIGHT/2, HEIGHT/2, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+}
+
+void drawAxes() {
+    glBegin(GL_LINES);
+    glColor3f(0.5f, 0.5f, 0.5f);
+    glVertex2f(-WIDTH/2, 0); glVertex2f(WIDTH/2, 0);
+    glVertex2f(0, -HEIGHT/2); glVertex2f(0, HEIGHT/2);
+    glEnd();
+}
+
+void drawPolygon(const std::vector<std::pair<float, float>>& pts, float r, float g, float b) {
+    glBegin(GL_LINE_LOOP);
+    glColor3f(r, g, b);
+    for (const auto& p : pts) {
+        glVertex2f(p.first, p.second);
+    }
+    glEnd();
+}
+
+int computeCode(float x, float y, float x_min, float y_min, float x_max, float y_max) {
+    int code = 0;
+    if (x < x_min) code |= 1; // Left
+    else if (x > x_max) code |= 2; // Right
+    if (y < y_min) code |= 4; // Bottom
+    else if (y > y_max) code |= 8; // Top
+    return code;
+}
+
+bool clipLine(float& x1, float& y1, float& x2, float& y2, float x_min, float y_min, float x_max, float y_max) {
+    int code1 = computeCode(x1, y1, x_min, y_min, x_max, y_max);
+    int code2 = computeCode(x2, y2, x_min, y_min, x_max, y_max);
+    bool accept = false;
+    while (true) {
+        if (!(code1 | code2)) {
+            accept = true;
+            break;
+        } else if (code1 & code2) {
+            break;
+        } else {
+            int code_out = code1 ? code1 : code2;
+            float x, y;
+            if (code_out & 8) {
+                x = x1 + (x2 - x1) * (y_max - y1) / (y2 - y1);
+                y = y_max;
+            } else if (code_out & 4) {
+                x = x1 + (x2 - x1) * (y_min - y1) / (y2 - y1);
+                y = y_min;
+            } else if (code_out & 2) {
+                y = y1 + (y2 - y1) * (x_max - x1) / (x2 - x1);
+                x = x_max;
+            } else if (code_out & 1) {
+                y = y1 + (y2 - y1) * (x_min - x1) / (x2 - x1);
+                x = x_min;
+            }
+            if (code_out == code1) {
+                x1 = x; y1 = y;
+                code1 = computeCode(x1, y1, x_min, y_min, x_max, y_max);
+            } else {
+                x2 = x; y2 = y;
+                code2 = computeCode(x2, y2, x_min, y_min, x_max, y_max);
+            }
+        }
+    }
+    return accept;
+}
+
+void cohenSutherlandClip(const std::vector<std::pair<float, float>>& poly, float x_min, float y_min, float x_max, float y_max) {
+    std::vector<std::pair<float, float>> clipped;
+    for (size_t i = 0; i < poly.size(); i++) {
+        float x1 = poly[i].first, y1 = poly[i].second;
+        float x2 = poly[(i + 1) % poly.size()].first, y2 = poly[(i + 1) % poly.size()].second;
+        if (clipLine(x1, y1, x2, y2, x_min, y_min, x_max, y_max)) {
+            clipped.push_back({x1, y1});
+            clipped.push_back({x2, y2});
+        }
+    }
+    drawPolygon(clipped, 1.0f, 0.0f, 0.0f);
+}
+
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    drawAxes();
+    if (polygon.size() >= 3) {
+        drawPolygon(polygon, 0.0f, 1.0f, 0.0f);
+    }
+    if (window.size() >= 2) {
+        float x_min = std::min(window[0].first, window[1].first);
+        float x_max = std::max(window[0].first, window[1].first);
+        float y_min = std::min(window[0].second, window[1].second);
+        float y_max = std::max(window[0].second, window[1].second);
+        std::vector<std::pair<float, float>> win = {{x_min, y_min}, {x_max, y_min}, {x_max, y_max}, {x_min, y_max}};
+        drawPolygon(win, 0.0f, 0.0f, 1.0f);
+        if (polygon.size() >= 3) {
+            cohenSutherlandClip(polygon, x_min, y_min, x_max, y_max);
+        }
+    }
+    glutSwapBuffers();
+}
+
+void mouse(int button, int state, int x, int y) {
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        float xpos = x - WIDTH/2;
+        float ypos = HEIGHT/2 - y;
+        if (!defining_window) {
+            polygon.push_back({xpos, ypos});
+        } else {
+            window.push_back({xpos, ypos});
+            if (window.size() > 2) window.resize(2);
+        }
+        glutPostRedisplay();
+    }
+}
+
+void keyboard(unsigned char key, int x, int y) {
+    if (key == 'w' || key == 'W') {
+        defining_window = true;
+        window.clear();
+        glutPostRedisplay();
+    }
+    else if (key == 'c' || key == 'C') {
+        polygon.clear();
+        window.clear();
+        defining_window = false;
+        glutPostRedisplay();
+    }
+    else if (key == 'q' || key == 'Q') {
+        exit(0);
+    }
+}
+
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WIDTH, HEIGHT);
+    glutCreateWindow("Cohen-Sutherland Clipping");
+    setupViewport();
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glutDisplayFunc(display);
+    glutMouseFunc(mouse);
+    glutKeyboardFunc(keyboard);
+    glutMainLoop();
+    return 0;
+}

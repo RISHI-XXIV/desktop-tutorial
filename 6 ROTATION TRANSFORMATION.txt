@@ -1,0 +1,108 @@
+#include <GL/glut.h>
+#include <vector>
+#include <cmath>
+#include <iostream>
+
+const int WIDTH = 800, HEIGHT = 800;
+std::vector<std::pair<float, float>> polygon, pivot;
+bool rotate = false;
+
+void setupViewport() {
+    glViewport(0, 0, WIDTH, HEIGHT);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(-WIDTH/2, WIDTH/2, -HEIGHT/2, HEIGHT/2, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+}
+
+void drawAxes() {
+    glBegin(GL_LINES);
+    glColor3f(0.5f, 0.5f, 0.5f);
+    glVertex2f(-WIDTH/2, 0); glVertex2f(WIDTH/2, 0);
+    glVertex2f(0, -HEIGHT/2); glVertex2f(0, HEIGHT/2);
+    glEnd();
+}
+
+void drawPolygon(const std::vector<std::pair<float, float>>& pts, float r, float g, float b) {
+    glBegin(GL_LINE_LOOP);
+    glColor3f(r, g, b);
+    for (const auto& p : pts) {
+        glVertex2f(p.first, p.second);
+    }
+    glEnd();
+}
+
+void rotatePolygon(const std::vector<std::pair<float, float>>& pts, float angle, float cx, float cy) {
+    std::vector<std::pair<float, float>> rotated;
+    float rad = angle * M_PI / 180.0f;
+    for (const auto& p : pts) {
+        float x = p.first - cx;
+        float y = p.second - cy;
+        float x_new = x * cos(rad) - y * sin(rad) + cx;
+        float y_new = x * sin(rad) + y * cos(rad) + cy;
+        rotated.push_back({x_new, y_new});
+    }
+    drawPolygon(rotated, 1.0f, 0.0f, 0.0f);
+}
+
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    drawAxes();
+    if (polygon.size() >= 3) {
+        drawPolygon(polygon, 0.0f, 1.0f, 0.0f);
+        if (rotate && !pivot.empty()) {
+            rotatePolygon(polygon, 45.0f, pivot[0].first, pivot[0].second);
+        }
+    }
+    if (!pivot.empty()) {
+        glBegin(GL_POINTS);
+        glColor3f(1.0f, 1.0f, 0.0f);
+        glVertex2f(pivot[0].first, pivot[0].second);
+        glEnd();
+    }
+    glutSwapBuffers();
+}
+
+void mouse(int button, int state, int x, int y) {
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        float xpos = x - WIDTH/2;
+        float ypos = HEIGHT/2 - y;
+        if (pivot.empty()) {
+            pivot.push_back({xpos, ypos});
+        } else {
+            polygon.push_back({xpos, ypos});
+        }
+        glutPostRedisplay();
+    }
+}
+
+void keyboard(unsigned char key, int x, int y) {
+    if (key == 'r' || key == 'R') {
+        rotate = true;
+        glutPostRedisplay();
+    }
+    else if (key == 'c' || key == 'C') {
+        polygon.clear();
+        pivot.clear();
+        rotate = false;
+        glutPostRedisplay();
+    }
+    else if (key == 'q' || key == 'Q') {
+        exit(0);
+    }
+}
+
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WIDTH, HEIGHT);
+    glutCreateWindow("2D Rotation");
+    setupViewport();
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glutDisplayFunc(display);
+    glutMouseFunc(mouse);
+    glutKeyboardFunc(keyboard);
+    glutMainLoop();
+    return 0;
+}

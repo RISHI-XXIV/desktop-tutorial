@@ -1,0 +1,84 @@
+#include <GL/glut.h>
+#include <vector>
+#include <cmath>
+#include <iostream>
+
+const int WIDTH = 800, HEIGHT = 800;
+std::vector<std::pair<float, float>> points;
+
+void setupViewport() {
+    glViewport(0, 0, WIDTH, HEIGHT);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(-WIDTH/2, WIDTH/2, -HEIGHT/2, HEIGHT/2, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+}
+
+void drawAxes() {
+    glBegin(GL_LINES);
+    glColor3f(0.5f, 0.5f, 0.5f);
+    glVertex2f(-WIDTH/2, 0); glVertex2f(WIDTH/2, 0);
+    glVertex2f(0, -HEIGHT/2); glVertex2f(0, HEIGHT/2);
+    glEnd();
+}
+
+void drawBresenhamLine(int x1, int y1, int x2, int y2) {
+    glBegin(GL_POINTS);
+    glColor3f(1.0f, 0.0f, 0.0f);
+    int dx = abs(x2 - x1), dy = abs(y2 - y1);
+    int sx = x1 < x2 ? 1 : -1;
+    int sy = y1 < y2 ? 1 : -1;
+    int err = dx - dy;
+    while (true) {
+        glVertex2f(x1, y1);
+        if (x1 == x2 && y1 == y2) break;
+        int e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x1 += sx; }
+        if (e2 < dx) { err += dx; y1 += sy; }
+    }
+    glEnd();
+}
+
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    drawAxes();
+    if (points.size() == 2) {
+        drawBresenhamLine(points[0].first, points[0].second, points[1].first, points[1].second);
+    }
+    glutSwapBuffers();
+}
+
+void mouse(int button, int state, int x, int y) {
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        float xpos = x - WIDTH/2;
+        float ypos = HEIGHT/2 - y;
+        points.push_back({xpos, ypos});
+        if (points.size() > 2) points.resize(2);
+        glutPostRedisplay();
+    }
+}
+
+void keyboard(unsigned char key, int x, int y) {
+    if (key == 'c' || key == 'C') {
+        points.clear();
+        glutPostRedisplay();
+    }
+    else if (key == 'q' || key == 'Q') {
+        exit(0);
+    }
+}
+
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WIDTH, HEIGHT);
+    glutCreateWindow("Bresenham Line");
+    setupViewport();
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glutDisplayFunc(display);
+    glutMouseFunc(mouse);
+    glutKeyboardFunc(keyboard);
+    glutMainLoop();
+    return 0;
+}

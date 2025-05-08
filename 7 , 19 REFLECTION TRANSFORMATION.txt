@@ -1,0 +1,107 @@
+#include <GL/glut.h>
+#include <vector>
+#include <iostream>
+
+const int WIDTH = 800, HEIGHT = 800;
+std::vector<std::pair<float, float>> polygon;
+int reflectionType = 0; // 0: none, 1: x-axis, 2: y-axis, 3: origin
+
+void setupViewport() {
+    glViewport(0, 0, WIDTH, HEIGHT);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(-WIDTH/2, WIDTH/2, -HEIGHT/2, HEIGHT/2, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+}
+
+void drawAxes() {
+    glBegin(GL_LINES);
+    glColor3f(0.5f, 0.5f, 0.5f);
+    glVertex2f(-WIDTH/2, 0); glVertex2f(WIDTH/2, 0);
+    glVertex2f(0, -HEIGHT/2); glVertex2f(0, HEIGHT/2);
+    glEnd();
+}
+
+void drawPolygon(const std::vector<std::pair<float, float>>& pts, float r, float g, float b) {
+    glBegin(GL_LINE_LOOP);
+    glColor3f(r, g, b);
+    for (const auto& p : pts) {
+        glVertex2f(p.first, p.second);
+    }
+    glEnd();
+}
+
+void reflectPolygon(const std::vector<std::pair<float, float>>& pts, int type) {
+    std::vector<std::pair<float, float>> reflected;
+    for (const auto& p : pts) {
+        float x_new = p.first, y_new = p.second;
+        if (type == 1) { // X-axis
+            y_new = -p.second;
+        } else if (type == 2) { // Y-axis
+            x_new = -p.first;
+        } else if (type == 3) { // Origin
+            x_new = -p.first;
+            y_new = -p.second;
+        }
+        reflected.push_back({x_new, y_new});
+    }
+    drawPolygon(reflected, 1.0f, 0.0f, 0.0f);
+}
+
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    drawAxes();
+    if (polygon.size() >= 3) {
+        drawPolygon(polygon, 0.0f, 1.0f, 0.0f);
+        if (reflectionType != 0) {
+            reflectPolygon(polygon, reflectionType);
+        }
+    }
+    glutSwapBuffers();
+}
+
+void mouse(int button, int state, int x, int y) {
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        float xpos = x - WIDTH/2;
+        float ypos = HEIGHT/2 - y;
+        polygon.push_back({xpos, ypos});
+        glutPostRedisplay();
+    }
+}
+
+void keyboard(unsigned char key, int x, int y) {
+    if (key == 'c' || key == 'C') {
+        polygon.clear();
+        reflectionType = 0;
+        glutPostRedisplay();
+    }
+    else if (key == 'q' || key == 'Q') {
+        exit(0);
+    }
+}
+
+void menu(int value) {
+    reflectionType = value;
+    glutPostRedisplay();
+}
+
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WIDTH, HEIGHT);
+    glutCreateWindow("2D Reflection");
+    setupViewport();
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glutDisplayFunc(display);
+    glutMouseFunc(mouse);
+    glutKeyboardFunc(keyboard);
+    glutCreateMenu(menu);
+    glutAddEntry("None", 0);
+    glutAddEntry("Reflect X-axis", 1);
+    glutAddEntry("Reflect Y-axis", 2);
+    glutAddEntry("Reflect Origin", 3);
+    glutAttachMenu(GLUT_RIGHT_BUTTON);
+    glutMainLoop();
+    return 0;
+}

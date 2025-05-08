@@ -1,0 +1,102 @@
+#include <GL/glut.h>
+#include <vector>
+#include <cmath>
+#include <iostream>
+
+const int WIDTH = 800, HEIGHT = 800;
+std::vector<std::pair<float, float>> points;
+
+void setupViewport() {
+    glViewport(0, 0, WIDTH, HEIGHT);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(-WIDTH/2, WIDTH/2, -HEIGHT/2, HEIGHT/2, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+}
+
+void drawAxes() {
+    glBegin(GL_LINES);
+    glColor3f(0.5f, 0.5f, 0.5f);
+    glVertex2f(-WIDTH/2, 0); glVertex2f(WIDTH/2, 0);
+    glVertex2f(0, -HEIGHT/2); glVertex2f(0, HEIGHT/2);
+    glEnd();
+}
+
+void plotCirclePoints(float xc, float yc, float x, float y) {
+    glVertex2f(xc + x, yc + y);
+    glVertex2f(xc - x, yc + y);
+    glVertex2f(xc + x, yc - y);
+    glVertex2f(xc - x, yc - y);
+    glVertex2f(xc + y, yc + x);
+    glVertex2f(xc - y, yc + x);
+    glVertex2f(xc + y, yc - x);
+    glVertex2f(xc - y, yc - x);
+}
+
+void drawBresenhamCircle(float xc, float yc, float r) {
+    glBegin(GL_POINTS);
+    glColor3f(1.0f, 0.0f, 0.0f);
+    int x = 0, y = r;
+    int d = 3 - 2 * r;
+    plotCirclePoints(xc, yc, x, y);
+    while (y >= x) {
+        x++;
+        if (d > 0) {
+            y--;
+            d = d + 4 * (x - y) + 10;
+        } else {
+            d = d + 4 * x + 6;
+        }
+        plotCirclePoints(xc, yc, x, y);
+    }
+    glEnd();
+}
+
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    drawAxes();
+    if (points.size() == 2) {
+        float r = sqrt(pow(points[1].first - points[0].first, 2) + pow(points[1].second - points[0].second, 2));
+        // Draw circles in all quadrants
+        drawBresenhamCircle(points[0].first, points[0].second, r); // Q1
+        drawBresenhamCircle(-points[0].first, points[0].second, r); // Q2
+        drawBresenhamCircle(-points[0].first, -points[0].second, r); // Q3
+        drawBresenhamCircle(points[0].first, -points[0].second, r); // Q4
+    }
+    glutSwapBuffers();
+}
+
+void mouse(int button, int state, int x, int y) {
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        float xpos = x - WIDTH/2;
+        float ypos = HEIGHT/2 - y;
+        points.push_back({xpos, ypos});
+        if (points.size() > 2) points.clear();
+        glutPostRedisplay();
+    }
+}
+
+void keyboard(unsigned char key, int x, int y) {
+    if (key == 'c' || key == 'C') {
+        points.clear();
+        glutPostRedisplay();
+    }
+    else if (key == 'q' || key == 'Q') {
+        exit(0);
+    }
+}
+
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WIDTH, HEIGHT);
+    glutCreateWindow("Bresenham Circle");
+    setupViewport();
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glutDisplayFunc(display);
+    glutMouseFunc(mouse);
+    glutKeyboardFunc(keyboard);
+    glutMainLoop();
+    return 0;
+}

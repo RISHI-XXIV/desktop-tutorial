@@ -1,0 +1,124 @@
+#include <GL/glut.h>
+#include <vector>
+#include <iostream>
+
+const int WIDTH = 800, HEIGHT = 800;
+std::vector<std::pair<float, float>> polygon;
+bool fill = false;
+float fillColor[3] = {1.0f, 0.0f, 0.0f}; // Default red
+
+void setupViewport() {
+    glViewport(0, 0, WIDTH, HEIGHT);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(-WIDTH/2, WIDTH/2, -HEIGHT/2, HEIGHT/2, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+}
+
+void drawAxes() {
+    glBegin(GL_LINES);
+    glColor3f(0.5f, 0.5f, 0.5f);
+    glVertex2f(-WIDTH/2, 0); glVertex2f(WIDTH/2, 0);
+    glVertex2f(0, -HEIGHT/2); glVertex2f(0, HEIGHT/2);
+    glEnd();
+}
+
+void drawPolygon(const std::vector<std::pair<float, float>>& pts) {
+    glBegin(GL_LINE_LOOP);
+    glColor3f(0.0f, 0.0f, 1.0f);
+    for (const auto& p : pts) {
+        glVertex2f(p.first, p.second);
+    }
+    glEnd();
+}
+
+void floodFill(int x, int y, float fillCol[3], float replaceCol[3]) {
+    float color[3];
+    glReadPixels(x + WIDTH/2, HEIGHT/2 - y, 1, 1, GL_RGB, GL_FLOAT, color);
+    if (color[0] == replaceCol[0] && color[1] == replaceCol[1] && color[2] == replaceCol[2]) {
+        glBegin(GL_POINTS);
+        glColor3f(fillCol[0], fillCol[1], fillCol[2]);
+        glVertex2f(x, y);
+        glEnd();
+        floodFill(x + 1, y, fillCol, replaceCol);
+        floodFill(x - 1, y, fillCol, replaceCol);
+        floodFill(x, y + 1, fillCol, replaceCol);
+        floodFill(x, y - 1, fillCol, replaceCol);
+    }
+}
+
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    drawAxes();
+    if (polygon.size() >= 3) {
+        drawPolygon(polygon);
+    }
+    glutSwapBuffers();
+}
+
+void mouse(int button, int state, int x, int y) {
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        float xpos = x - WIDTH/2;
+        float ypos = HEIGHT/2 - y;
+        if (!fill) {
+            polygon.push_back({xpos, ypos});
+        } else {
+            floodFill((int)xpos, (int)ypos, fillColor, new float[3]{0.0f, 0.0f, 0.0f});
+        }
+        glutPostRedisplay();
+    }
+}
+
+void keyboard(unsigned char key, int x, int y) {
+    if (key == 'f' || key == 'F') {
+        fill = true;
+        glutPostRedisplay();
+    }
+    else if (key == 'c' || key == 'C') {
+        polygon.clear();
+        fill = false;
+        glutPostRedisplay();
+    }
+    else if (key == 'q' || key == 'Q') {
+        exit(0);
+    }
+}
+
+void menu(int value) {
+    switch (value) {
+        case 1: // Red fill
+            fillColor[0] = 1.0f; fillColor[1] = 0.0f; fillColor[2] = 0.0f;
+            break;
+        case 2: // Green fill
+            fillColor[0] = 0.0f; fillColor[1] = 1.0f; fillColor[2] = 0.0f;
+            break;
+        case 3: // Blue fill
+            fillColor[0] = 0.0f; fillColor[1] = 0.0f; fillColor[2] = 1.0f;
+            break;
+        case 4: // Enable fill mode
+            fill = true;
+            break;
+    }
+    glutPostRedisplay();
+}
+
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WIDTH, HEIGHT);
+    glutCreateWindow("Flood Fill");
+    setupViewport();
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glutDisplayFunc(display);
+    glutMouseFunc(mouse);
+    glutKeyboardFunc(keyboard);
+    glutCreateMenu(menu);
+    glutAddEntry("Red Fill", 1);
+    glutAddEntry("Green Fill", 2);
+    glutAddEntry("Blue Fill", 3);
+    glutAddEntry("Enable Fill Mode", 4);
+    glutAttachMenu(GLUT_RIGHT_BUTTON);
+    glutMainLoop();
+    return 0;
+}
